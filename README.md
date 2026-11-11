@@ -23,6 +23,12 @@ toolbox of the languages and platforms used.
   every piece of text on the page has both, toggled with no page reload.
 - Fully responsive, down to small phones, with a mobile menu, visible
   keyboard focus and `prefers-reduced-motion` support.
+- A loading screen on first visit that stays up until every image on the
+  page (photo, school crest, company logos, language/platform icons) has
+  actually finished loading — so nothing ever appears half-loaded — with a
+  6-second safety timeout in case an asset stalls.
+- Extra responsive/touch polish: larger tap targets on phones, safe-area
+  padding for notched devices, and tuned layout down to 320px-wide screens.
 
 ## Structure
 

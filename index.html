@@ -7,6 +7,7 @@
 <meta name="description" content="Arifin Son (Fiin) — a student in Samarinda who builds things on the side. MTs An-Nur Samarinda, strong in ICT, Math, Science, Social Studies and English, and shipping with Next.js, Vercel, Supabase and Convex.">
 <link rel="icon" type="image/png" href="assets/photo.png">
 <link rel="apple-touch-icon" href="assets/photo.png">
+<meta name="theme-color" content="#EEF0E6">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -340,9 +341,88 @@
     section{ padding: 52px 0; }
     .hero{ padding: 36px 0 52px; }
   }
+
+  /* ---------- extra touch-target / small-device polish ---------- */
+  @media (max-width: 560px){
+    .btn{ padding: 12px 20px; }
+    .nav-toggle{ width: 42px; height: 42px; }
+    .lang-switch button{ padding: 8px 12px; }
+    .social{ padding: 16px; }
+  }
+  @media (max-width: 340px){
+    .id-name{ font-size: clamp(26px, 9vw, 34px); }
+    .hero-actions{ flex-direction: column; align-items: stretch; }
+    .hero-actions .btn{ justify-content: center; }
+  }
+  .masthead{ padding-top: env(safe-area-inset-top); }
+  footer{ padding-bottom: calc(48px + env(safe-area-inset-bottom)); }
+  .nav-mobile{ padding-bottom: calc(32px + env(safe-area-inset-bottom)); }
+
+  /* ---------- preloader ---------- */
+  .preloader{
+    position: fixed; inset: 0; z-index: 999;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--paper);
+    transition: opacity 0.5s ease, visibility 0.5s ease;
+  }
+  .preloader::before{
+    content: ""; position: absolute; inset: 0; z-index: -1;
+    background: repeating-linear-gradient(var(--paper) 0 37px, var(--rule) 37px 38px), var(--paper);
+    opacity: 0.55;
+  }
+  .preloader.is-hidden{ opacity: 0; visibility: hidden; pointer-events: none; }
+  .preloader-card{
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+    background: var(--paper); border: 2px solid var(--ink); border-radius: 10px;
+    box-shadow: 6px 6px 0 var(--ink); padding: 30px 34px; min-width: 220px;
+  }
+  .preloader-mark{
+    width: 50px; height: 50px; border-radius: 50%; background: var(--ink); color: var(--paper);
+    border: 2px solid var(--ink); display: flex; align-items: center; justify-content: center;
+    font-family: var(--display); font-weight: 700; font-size: 20px; overflow: hidden; flex: none;
+    animation: pulse-ring 1.4s ease-in-out infinite;
+  }
+  .preloader-mark img{ width: 100%; height: 100%; object-fit: cover; display: block; }
+  @keyframes pulse-ring{
+    0%, 100%{ box-shadow: 0 0 0 0 rgba(31,122,77,0.35); }
+    50%{ box-shadow: 0 0 0 7px rgba(31,122,77,0); }
+  }
+  .preloader-label{
+    font-family: var(--mono); font-size: 12px; color: var(--dim); text-align: center;
+    letter-spacing: 0.02em;
+  }
+  .preloader-bar{
+    width: 190px; height: 7px; border: 2px solid var(--ink); border-radius: 999px;
+    overflow: hidden; background: var(--paper-2);
+  }
+  .preloader-bar-fill{
+    height: 100%; width: 0%; background: var(--green); border-radius: 999px;
+    transition: width 0.25s ease;
+  }
+  .preloader-pct{ font-family: var(--mono); font-size: 11px; color: var(--faint); font-weight: 600; }
+  body.is-loading{ overflow: hidden; height: 100%; }
+  @media (prefers-reduced-motion: reduce){
+    .preloader, .preloader-bar-fill{ transition: none; }
+    .preloader-mark{ animation: none; }
+  }
 </style>
 </head>
-<body>
+<body class="is-loading">
+
+<div class="preloader" id="preloader" role="status" aria-live="polite">
+  <div class="preloader-card">
+    <div class="preloader-mark">
+      <img src="assets/photo.png" alt="" aria-hidden="true"
+           onerror="this.remove(); this.parentElement.textContent='F';">
+    </div>
+    <div class="preloader-label">
+      <span class="en-text">Loading the logbook…</span>
+      <span class="id-text">Memuat catatan…</span>
+    </div>
+    <div class="preloader-bar"><div class="preloader-bar-fill" id="preloaderFill"></div></div>
+    <div class="preloader-pct" id="preloaderPct">0%</div>
+  </div>
+</div>
 
 <div class="ground"></div>
 <div class="margin-rule"></div>
@@ -704,6 +784,68 @@
 </footer>
 
 <script>
+  // asset preloader — stays up until every image on the page (photo, school
+  // crest, company logos, language/platform icons) has actually finished
+  // loading (or failed, which still counts as "settled" so a missing photo
+  // can't hang the loader forever), plus webfonts if the browser supports
+  // checking for them. Only then is the page revealed.
+  (function(){
+    var pre = document.getElementById('preloader');
+    if(!pre){ document.body.classList.remove('is-loading'); return; }
+    var fill = document.getElementById('preloaderFill');
+    var pct = document.getElementById('preloaderPct');
+
+    var imgs = Array.prototype.slice.call(document.images);
+    var total = imgs.length + (window.document && document.fonts ? 1 : 0);
+    var done = 0;
+    var finished = false;
+
+    function update(){
+      var percent = total ? Math.min(100, Math.round((done / total) * 100)) : 100;
+      if(fill) fill.style.width = percent + '%';
+      if(pct) pct.textContent = percent + '%';
+    }
+    update();
+
+    function settle(){
+      done++;
+      update();
+      if(done >= total) finish();
+    }
+
+    function finish(){
+      if(finished) return;
+      finished = true;
+      update();
+      document.body.classList.remove('is-loading');
+      pre.classList.add('is-hidden');
+      pre.setAttribute('aria-hidden', 'true');
+      setTimeout(function(){
+        if(pre && pre.parentNode) pre.parentNode.removeChild(pre);
+      }, 650);
+    }
+
+    if(total === 0){
+      finish();
+    }else{
+      imgs.forEach(function(img){
+        if(img.complete && img.naturalWidth !== 0){
+          settle();
+        }else{
+          img.addEventListener('load', settle, { once: true });
+          img.addEventListener('error', settle, { once: true });
+        }
+      });
+      if(document.fonts){
+        document.fonts.ready.then(settle, settle);
+      }
+    }
+
+    // safety net: never let the loader block the page for more than a
+    // few seconds, even if an asset or a slow connection stalls.
+    setTimeout(finish, 6000);
+  })();
+
   // local time for Samarinda (WITA, UTC+8)
   (function(){
     var els = [document.getElementById('clock'), document.getElementById('clock2')];
